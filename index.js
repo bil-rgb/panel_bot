@@ -1,68 +1,50 @@
 const { execSync, spawn } = require("child_process");
-const fs = require("fs");
 
 console.log("🤖 Panel Rename Bot - Starting...");
 
-// Cek apakah python3 tersedia
+function run(cmd) {
+  try { execSync(cmd, { stdio: "inherit" }); return true; }
+  catch (e) { return false; }
+}
+
 function checkPython() {
-  try {
-    const ver = execSync("python3 --version 2>&1").toString().trim();
-    console.log("✅ Python ditemukan:", ver);
-    return "python3";
-  } catch {}
-  try {
-    const ver = execSync("python --version 2>&1").toString().trim();
-    console.log("✅ Python ditemukan:", ver);
-    return "python";
-  } catch {}
+  try { execSync("python3 --version 2>&1"); return "python3"; } catch {}
+  try { execSync("python --version 2>&1"); return "python"; } catch {}
   return null;
 }
 
-// Install pip packages
-function installDeps(pythonCmd) {
-  console.log("📦 Menginstall dependencies...");
-  try {
-    execSync(`${pythonCmd} -m pip install -r requirements.txt --quiet`, {
-      stdio: "inherit",
-    });
-    console.log("✅ Dependencies terinstall!");
-  } catch (e) {
-    console.error("❌ Gagal install dependencies:", e.message);
-    process.exit(1);
-  }
+function installDeps(py) {
+  console.log("📦 Install pip dulu...");
+  run(`${py} -m ensurepip --upgrade`) ||
+  run(`curl -sS https://bootstrap.pypa.io/get-pip.py | ${py}`) ||
+  run(`wget -qO- https://bootstrap.pypa.io/get-pip.py | ${py}`);
+
+  console.log("📦 Install dependencies...");
+  run(`${py} -m pip install -r requirements.txt --quiet`) ||
+  run(`${py} -m pip install -r requirements.txt --quiet --break-system-packages`) ||
+  run(`${py} -m pip install python-telegram-bot==21.6 aiohttp==3.9.5 aiofiles==23.2.1 python-dotenv==1.0.1 --quiet --break-system-packages`);
+
+  console.log("✅ Dependencies siap!");
 }
 
-// Jalankan bot
-function runBot(pythonCmd) {
+function runBot(py) {
   console.log("🚀 Menjalankan bot...");
-
-  const env = {
-    ...process.env,
-  };
-
-  const bot = spawn(pythonCmd, ["bot.py"], {
-    stdio: "inherit",
-    env: env,
-  });
+  const bot = spawn(py, ["bot.py"], { stdio: "inherit", env: process.env });
 
   bot.on("close", (code) => {
-    console.log(`Bot berhenti dengan kode: ${code}`);
-    console.log("🔄 Restart dalam 5 detik...");
-    setTimeout(() => runBot(pythonCmd), 5000);
+    console.log(`Bot berhenti (kode: ${code}), restart 5 detik...`);
+    setTimeout(() => runBot(py), 5000);
   });
 
   bot.on("error", (err) => {
     console.error("❌ Error:", err.message);
-    setTimeout(() => runBot(pythonCmd), 5000);
+    setTimeout(() => runBot(py), 5000);
   });
 }
 
-// Main
-const pythonCmd = checkPython();
-if (!pythonCmd) {
-  console.error("❌ Python tidak ditemukan di server ini!");
-  process.exit(1);
-}
+const py = checkPython();
+if (!py) { console.error("❌ Python tidak ditemukan!"); process.exit(1); }
+console.log("✅ Python:", py);
 
-installDeps(pythonCmd);
-runBot(pythonCmd);
+installDeps(py);
+runBot(py);
