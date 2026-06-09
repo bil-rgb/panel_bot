@@ -1,0 +1,12 @@
+{
+  "name": "panel-rename-bot",
+  "version": "1.0.0",
+  "description": "Telegram Panel Rename Bot",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
